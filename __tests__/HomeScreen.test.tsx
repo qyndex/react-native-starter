@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
-import HomeScreen from '../app/(tabs)/index';
+import TodosScreen from '../app/(tabs)/index';
 
 // Mock safe-area-context
 jest.mock('react-native-safe-area-context', () => {
@@ -17,30 +17,59 @@ jest.mock('@/hooks/useColorScheme', () => ({
   useColorScheme: () => 'light',
 }));
 
-describe('HomeScreen', () => {
-  it('renders the welcome title', () => {
-    render(<HomeScreen />);
-    expect(screen.getByText('Welcome to MyApp')).toBeTruthy();
+// Mock the auth hook -- unauthenticated state shows auth screen
+jest.mock('@/src/hooks/useAuth', () => ({
+  useAuth: () => ({
+    session: null,
+    user: null,
+    loading: false,
+    signIn: jest.fn(),
+    signUp: jest.fn(),
+    signOut: jest.fn(),
+  }),
+  AuthProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
+
+// Mock supabase client
+jest.mock('@/src/lib/supabase', () => ({
+  supabase: {
+    auth: {
+      getSession: jest.fn().mockResolvedValue({ data: { session: null } }),
+      onAuthStateChange: jest.fn().mockReturnValue({
+        data: { subscription: { unsubscribe: jest.fn() } },
+      }),
+    },
+    from: jest.fn().mockReturnValue({
+      select: jest.fn().mockReturnValue({
+        eq: jest.fn().mockReturnValue({
+          order: jest.fn().mockResolvedValue({ data: [], error: null }),
+          single: jest.fn().mockResolvedValue({ data: null, error: null }),
+        }),
+      }),
+    }),
+  },
+}));
+
+describe('TodosScreen', () => {
+  it('shows auth screen when not logged in', () => {
+    render(<TodosScreen />);
+    // Auth screen shows sign-in form
+    expect(screen.getByText('Welcome Back')).toBeTruthy();
   });
 
-  it('renders the subtitle mentioning Expo SDK', () => {
-    render(<HomeScreen />);
-    expect(
-      screen.getByText('Built with Expo SDK 51 and expo-router')
-    ).toBeTruthy();
+  it('shows demo credentials hint', () => {
+    render(<TodosScreen />);
+    expect(screen.getByText(/demo@example.com/)).toBeTruthy();
   });
 
-  it('renders the Get Started card', () => {
-    render(<HomeScreen />);
-    expect(screen.getByText('Get Started')).toBeTruthy();
-    expect(
-      screen.getByText(/Edit app\/\(tabs\)\/index\.tsx/)
-    ).toBeTruthy();
+  it('has email and password inputs', () => {
+    render(<TodosScreen />);
+    expect(screen.getByLabelText('Email address')).toBeTruthy();
+    expect(screen.getByLabelText('Password')).toBeTruthy();
   });
 
-  it('shows the running platform text', () => {
-    render(<HomeScreen />);
-    // In test environment Platform.select returns the default or ios
-    expect(screen.getByText(/Running on/)).toBeTruthy();
+  it('has sign in button', () => {
+    render(<TodosScreen />);
+    expect(screen.getByLabelText('Sign in')).toBeTruthy();
   });
 });

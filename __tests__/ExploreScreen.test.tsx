@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
-import ExploreScreen from '../app/(tabs)/explore';
+import ProfileScreen from '../app/(tabs)/profile';
 
 // Mock safe-area-context
 jest.mock('react-native-safe-area-context', () => {
@@ -16,35 +16,46 @@ jest.mock('@/hooks/useColorScheme', () => ({
   useColorScheme: () => 'light',
 }));
 
-describe('ExploreScreen', () => {
-  it('renders the Explore Features header', () => {
-    render(<ExploreScreen />);
-    expect(screen.getByText('Explore Features')).toBeTruthy();
+// Mock the auth hook -- unauthenticated state
+jest.mock('@/src/hooks/useAuth', () => ({
+  useAuth: () => ({
+    session: null,
+    user: null,
+    loading: false,
+    signIn: jest.fn(),
+    signUp: jest.fn(),
+    signOut: jest.fn(),
+  }),
+  AuthProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
+
+jest.mock('@/src/lib/supabase', () => ({
+  supabase: {
+    auth: {
+      getSession: jest.fn().mockResolvedValue({ data: { session: null } }),
+      onAuthStateChange: jest.fn().mockReturnValue({
+        data: { subscription: { unsubscribe: jest.fn() } },
+      }),
+    },
+    from: jest.fn().mockReturnValue({
+      select: jest.fn().mockReturnValue({
+        eq: jest.fn().mockReturnValue({
+          order: jest.fn().mockResolvedValue({ data: [], error: null }),
+          single: jest.fn().mockResolvedValue({ data: null, error: null }),
+        }),
+      }),
+    }),
+  },
+}));
+
+describe('ProfileScreen', () => {
+  it('shows auth screen when not logged in', () => {
+    render(<ProfileScreen />);
+    expect(screen.getByText('Welcome Back')).toBeTruthy();
   });
 
-  it('renders all four feature items', () => {
-    render(<ExploreScreen />);
-    expect(screen.getByText('File-based routing')).toBeTruthy();
-    expect(screen.getByText('Cross-platform')).toBeTruthy();
-    expect(screen.getByText('TypeScript')).toBeTruthy();
-    expect(screen.getByText('Safe Area')).toBeTruthy();
-  });
-
-  it('renders feature descriptions', () => {
-    render(<ExploreScreen />);
-    expect(
-      screen.getByText('expo-router maps files to screens automatically.')
-    ).toBeTruthy();
-    expect(
-      screen.getByText('One codebase targets iOS, Android, and Web.')
-    ).toBeTruthy();
-    expect(
-      screen.getByText('Full type safety with strict mode enabled.')
-    ).toBeTruthy();
-    expect(
-      screen.getByText(
-        'react-native-safe-area-context handles notches and home bars.'
-      )
-    ).toBeTruthy();
+  it('shows sign up toggle', () => {
+    render(<ProfileScreen />);
+    expect(screen.getByText(/Don't have an account/)).toBeTruthy();
   });
 });
